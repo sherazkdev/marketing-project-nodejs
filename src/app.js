@@ -12,7 +12,7 @@ DotEnv.config({
 const app = express();
 
 // Error Handler
-import ErroHandler from "./Middlewares/errorHandler.middleware.js";import e from "express";
+import ErroHandler from "./Middlewares/errorHandler.middleware.js";
 import UserRouter from "./Routes/user.routes.js";
 import AddRouter from "./Routes/add.routes.js";
 

@@ -1,10 +1,10 @@
 import ApiError from "../Utils/ApiError.js";
-import ApiResponse from "../Utils/ApiResponse";
+import ApiResponse from "../Utils/ApiResponse.js";
 import { STATUS_CODES,SUCCESS_MESSAGES,ERROR_MESSAGES } from "../../../Chat-app-Backend/src/Constants/responseConstants.js";
 
 /** services */
-import UserServices from "../Services/user.services";
-import { SEND_OTP_VALIDATE, FIND_USER_BY_ID_VALIDATE,SIGN_IN_VALIDATE, UNIQUE_EMAIL_VALIDATE, UNIQUE_USERNAME_VALIDATE, UPDATE_USER_AVATAR_VALIDATE, UPDATE_USER_FULLNAME_VALIDATE, UPDATE_USER_PASSWORD_VALIDATE } from "../Validaters/user.validaters";
+import UserServices from "../Services/user.services.js";
+import { SEND_OTP_VALIDATE, FIND_USER_BY_ID_VALIDATE,SIGN_IN_VALIDATE, UNIQUE_EMAIL_VALIDATE, UNIQUE_USERNAME_VALIDATE, UPDATE_USER_AVATAR_VALIDATE, UPDATE_USER_FULLNAME_VALIDATE, UPDATE_USER_PASSWORD_VALIDATE } from "../Validaters/user.validaters.js";
 import mongoose from "mongoose";
 
 class UserControllers extends UserServices {

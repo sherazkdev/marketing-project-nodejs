@@ -1,10 +1,10 @@
 /** User model */
-import UserModel from "../Models/User.model";
-import ApiError from "../Utils/ApiError";
+import UserModel from "../Models/User.model.js";
+import ApiError from "../Utils/ApiError.js";
 import jwt from "jsonwebtoken";
 
 /** Services */
-import UserServices from "../Services/user.services";
+import UserServices from "../Services/user.services.js";
 import passport from "passport";
 
 class Authentications extends UserServices {

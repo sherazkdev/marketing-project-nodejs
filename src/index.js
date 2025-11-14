@@ -1,7 +1,7 @@
-import app from "./app";
+import app from "./app.js";
 
 /** MONGO CONNECTION */
-import Connection from "./Connections/MongoConnection/Connection";
+import Connection from "./Connections/MongoConnection/Connection.js";
 
 Connection.Connect().then( () => {
     app.listen(process.env.PORT,() => console.log(`\n Project at running http://localhost:${process.env.PORT}`));

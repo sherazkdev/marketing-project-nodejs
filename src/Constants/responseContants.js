@@ -1,4 +1,4 @@
-const STATUS_CODES = {
+export const STATUS_CODES = {
   OK: 200,
   CREATED: 201,
   NO_CONTENT: 204,
@@ -12,7 +12,7 @@ const STATUS_CODES = {
   INTERNAL_SERVER_ERROR: 500,
 };
 
-const SUCCESS_MESSAGES = {
+export const SUCCESS_MESSAGES = {
     /** User success messages */
     USER_LOGGED_IN : "Success: User logged in successfully.",
     USER_LOGOUT : "Success: User logout successfully.",
@@ -20,14 +20,21 @@ const SUCCESS_MESSAGES = {
     USER_UPDATED : "Success: User updated successfully.",
     USER_REGISTERED : "Success: User registered successfully.",
     USER_DELETED: "Success: User deleted successfully.",
+    USER_FETCHED:"Success: User successfulyy fetched.",
+
+    /** Ai based messages */
+    AI_BASED_CONTENT_GENERATED:"Success: AI based content generated.",
+    AI_BASED_IMAGES_GENERATED:"Success: AI based image generated.",
+    AI_BASED_HASHTAGS_GENERATED:"Success: AI based hashtags generated.",
 
     /** Add success messages */
     ADD_UPLOADED : "Success: Add successfully uploaded.",
+    ADD_CREATED : "Success: Add successfully created",
     ADD_UPDATED : "Success: Add updated successfully.",
     ADD_DELETED : "Success: Add deleted successfully",
 };
 
-const ERROR_MESSAGES = {
+export const ERROR_MESSAGES = {
     USER_NOT_FOUND: "Errro: User not found.",
     USER_IS_NOT_VERIFIED:"Error: User email is not verified",
     USER_ALREADY_EXISTS: "Errro: User with given details already exists.",

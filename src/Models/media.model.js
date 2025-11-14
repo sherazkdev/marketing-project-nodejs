@@ -1,9 +1,8 @@
-import { required } from "joi";
 import mongoose from "mongoose";
 
 /** Media Schema */
 const MediaSchema = new mongoose.Schema({
-    adId:{
+    addId:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"Add",
         index:true,
