@@ -6,7 +6,7 @@ DotEnv.config();
 
 const connectDB = async () => {
     try {
-        console.log(DB_NAME);
+        console.log(DB_NAME,"db");
         const connectDB = await mongoose.connect(`${process.env.MONGO_URI}/${DB_NAME}`);
         console.log(`\n MongoDB connected !! DB HOST: ${connectDB.connection.host}`);
     } catch (error) {
