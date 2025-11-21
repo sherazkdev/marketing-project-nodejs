@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import UserModel from "../Models/User.model.js";
+import UserModel from "../Models/user.model.js";
 
 /** Services */
 import ApiError from "../Utils/ApiError.js";
