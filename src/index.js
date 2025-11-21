@@ -3,8 +3,16 @@ import app from "./app.js";
 /** MONGO CONNECTION */
 import Connection from "./Connections/MongoConnection/Connection.js";
 
-Connection().then( () => {
-    // app.listen(process.env.PORT,() => console.log(`\n Project at running http://localhost:${process.env.PORT}`));
-}).catch( (connectionError) => console.log(connectionError);
+
+const MongooseConnection = async () => {
+    try {
+        await Connection();
+    } catch (error) {
+        console.log(error);
+        process.exit(1);
+    }
+}
+
+await MongooseConnection();
 
 export default app;
