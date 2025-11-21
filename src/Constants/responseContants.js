@@ -38,6 +38,7 @@ export const ERROR_MESSAGES = {
     USER_NOT_FOUND: "Errro: User not found.",
     USER_IS_NOT_VERIFIED:"Error: User email is not verified",
     USER_ALREADY_EXISTS: "Errro: User with given details already exists.",
+    USERNAME_ALREADY_USED: "Error: Username is already taken.",
     INVALID_CREDENTIALS: "Errro: Invalid username or password.",
     UNAUTHORIZED_ACCESS: "Errro: You are not authorized to perform this action.",
     FORBIDDEN_ACTION: "Errro: This action is forbidden.",

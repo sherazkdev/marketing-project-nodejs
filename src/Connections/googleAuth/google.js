@@ -1,33 +1,37 @@
-import Auth0Strategy from "passport-auth0";
 import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import UserModel from "../../Models/User.model.js";
 
-/** User model */
-import UserModel from "../../Models/User.model";
+import DotEnv from "dotenv";
+import e from "express";
+DotEnv.config();
 
-const auth0Strategy = new Auth0Strategy({
-    clientID:process.env.GOOGLE_CLIENT_ID,
-    clientSecret:process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL:process.env.CLIENT_CALLBACK_URL
-},async function(req,accessToken,refreshToken, profile, done){
+passport.use(new GoogleStrategy(
+  {
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL,
+  },
+  async (accessToken, refreshToken, profile, done) => {
     try {
-        let user;
-        user = await UserModel.findOne({googleId:profile.id});
-        if(!user){
-            user = await UserModel.create({
-                googleId:profile.id,
-                fullname:profile.displayName,
-                email:profile.emails[0].value,
-                avatar:profile.photos[0].value,
-                isVerified:true,
-                status:"ENABLED"
-            });
-        }
-        return done(null,user);
-    } catch (error) {
-        return done(error,null);
+      let user = await UserModel.findOne({ googleId: profile.id });
+      console.log(profile);
+      if (!user) {
+        user = await UserModel.create({
+          googleId: profile.id,
+          fullname: profile.displayName,
+          username:profile?.email?.replace("@gmail.com",""),
+          email: profile.emails[0].value,
+          avatar: profile.photos[0].value.replace("=s"),
+          isVerified: true,
+          status: "ENABLED",
+        });
+      }
+      return done(null, user);
+    } catch (err) {
+      return done(err, null);
     }
-});
-
-passport.use(auth0Strategy);
+  }
+));
 
 export default passport;

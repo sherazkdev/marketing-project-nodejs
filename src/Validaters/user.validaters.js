@@ -5,8 +5,9 @@ export const SIGN_UP_VALIDATE = joi.object({
     fullname:joi.string().required().min(3).max(30),
     username:joi.string().lowercase().min(3).max(30).required(),
     avatar:joi.string().required(),
-    email:joi.string().email().required(),
     password:joi.string().min(7).required(),
+    userId:joi.string().length(24).required(),
+    email:joi.string().email().optional()
 });
 
 /** Sign In user validate */
@@ -25,6 +26,12 @@ export const UNIQUE_USERNAME_VALIDATE = joi.object({
     username:joi.string().lowercase().min(3).max(30).required()
 });
 
+/** verify otp validate */
+export const VERIFY_OTP_VALIDATE = joi.object({
+    email:joi.string().email().required(),
+    otp:joi.string().required()
+});
+
 /** email validate checking email is unique */
 export const UNIQUE_EMAIL_VALIDATE = joi.object({
     email:joi.string().email().required()
@@ -38,6 +45,11 @@ export const UPDATE_USER_AVATAR_VALIDATE = joi.object({
 /** user update fullname validate */
 export const UPDATE_USER_FULLNAME_VALIDATE = joi.object({
     fullname:joi.string().min(3).max(30).required()
+});
+
+/** user update username validate */
+export const UPDATE_USER_USERNAME_VALIDATE = joi.object({
+    username:joi.string().lowercase().min(3).max(30).required()
 });
 
 /** user update password validate */

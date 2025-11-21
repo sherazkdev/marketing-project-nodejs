@@ -4,10 +4,12 @@ import joi from "joi";
 /** Create add validate */
 export const CREATE_ADD_VALIDATE = joi.object({
     title:joi.string().min(3).required(),
+    coverImage:joi.string().required(),
     description:joi.string().required(),
     category:joi.string().required(),
     subCategory:joi.string().required(),
     price:joi.string().required().min(1),
+    location:joi.string().min(2).required(),
     hashtags:joi.array(),
     media:joi.array().items(
         joi.object({
@@ -24,9 +26,11 @@ export const UPDATE_ADD_VALIDATE = joi.object({
     title:joi.string().min(3).required(),
     description:joi.string().required(),
     category:joi.string().required(),
+    coverImage:joi.string().optional(),
     subCategory:joi.string().required(),
     hashtags:joi.array(),
     price:joi.string().required().min(1),
+    location:joi.string().min(2).required(),
     media:joi.array().items(
         joi.object({
             mediaUrl: joi.string().required(),
@@ -67,7 +71,7 @@ export const DELETE_MEDIA_FROM_ADD_VALIDATE = joi.object({
 /** Delete add validate */
 export const DELETE_ADD_VALIDATE = joi.object({
     _id:joi.string().min(24).max(24).required(),
-    deleteStatus:joi.string().required()
+    deleteStatus:joi.string().valid("PERMANENTLY_DELETE","SOFT_DELETE").default("PERMANENTLY_DELETE")
 });
 
 /** Update add status validate */
@@ -85,15 +89,18 @@ export const GET_ADDS_VALIDATE = joi.object({
 
 /** Search add validate */
 export const SEARCH_ADD_VALIDATE = joi.object({
-    q:joi.string().required().min(1),
-    sort:joi.string().required(),
-    page:joi.number().optional(),
-    sort:joi.string().required(),
+    q:joi.string().allow("").optional(),
+    sortField:joi.string().valid("createdAt","price").default("createdAt"),
+    order:joi.string().valid("ASC","DSC").default("ASC"),
+    page:joi.number().min(1).default(1),
+    limit:joi.number().min(1).max(100).default(30),
+    minPrice:joi.number().min(0).optional(),
+    maxPrice:joi.number().min(0).optional(),
 });
 
 /** Get add by id */
 export const GET_ADD_BY_ID_VALIDATE = joi.object({
-    _id:joi.string().min(24).max(24).required(),  
+    id:joi.string().min(24).max(24).required(),  
 })
 
 /** Get user profileb by id */

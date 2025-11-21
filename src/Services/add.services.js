@@ -5,10 +5,14 @@ import MediaModel from "../Models/media.model.js";
 import ApiError from "../Utils/ApiError.js";
 import ApiResponse from "../Utils/ApiResponse.js";
 import mongoose from "mongoose";
-import { STATUS_CODES,ERROR_MESSAGES } from "../Constants/responseContants.js";
+import { STATUS_CODES,SUCCESS_MESSAGES,ERROR_MESSAGES } from "../Constants/responseContants.js";
 import ai from "../Connections/GoogleGemini/googleGemini.js";
 import sharp from "sharp";
 import axios from "axios";
+import DotEnv from "dotenv";
+
+/** Envorments variables configration */
+DotEnv.config();
 
 class AddServices {
     constructor(){
@@ -19,39 +23,46 @@ class AddServices {
 
     /** Create add */ 
     CreateAdd = async (payload) => {
-        const {title,description,userId,price,category,subCategory,media,coverImage,hashtags} = payload;
-        const createdAdd = await this.AddModel.create({
+        const {title,description,userId,price,category,subCategory,media,coverImage,hashtags,location} = payload;
+
+        const createdAdd = await AddModel.create({
             owner:new mongoose.Types.ObjectId(userId),
-            category:category,
-            subCategory:subCategory,
-            title:title,
-            description:description,
-            coverImage:coverImage,
-            hashtags:hashtags,
-            price:price,
+            category,
+            subCategory,
+            title,
+            description,
+            coverImage,
+            hashtags,
+            type:"IMAGE",
+            price:Number(price),
+            location,
             status:"ENABLED"
         });
         /** media inserting */
         let createdMedia = null;
         if(media?.length > 0){
             // Prepare array of media documents
-            const mediaDocs = media.map(url => ({
+            console.log(media)
+            const mediaDocs = media.map(media => ({
                 addId: createdAdd._id,  // Reference to the Add
-                mediaUrl:url,           // The media URL
-                mediaType:"IMAGE",
-                filename:new Date().getTime() + "add-feed-pk.jpeg" 
+                mediaUrl:media?.mediaUrl, // The media URL
+                mediaType:media?.mediaType,
+                filename:media?.filename, 
             }));
 
             // Insert all media at once
             createdMedia = await this.MediaModel.insertMany(mediaDocs);
         }
-        /** share whatsapp --mock endpoint */
-        const sharedToWhatsapp = await axios.post(`${process.env.SERVER_URL}/api/v1/adds/share-whatsapp`,{createdAdd},{withCredentials:true});
-        /** share facebook --mock endpoint */
-        const sharedToFacebook = await axios.post(`${process.env.SERVER_URL}/api/v1/adds/share-facebook`,{createdAdd},{withCredentials:true});
+
+        /** Working on these controllers currenlty 
+            Lable : share whatsapp --mock endpoint 
+            1: const sharedToWhatsapp = await axios.post(`${process.env.SERVER_URL}/api/v1/adds/share-whatsapp`,{createdAdd},{withCredentials:true});
+            Lable : share facebook --mock endpoint 
+            2: const sharedToFacebook = await axios.post(`${process.env.SERVER_URL}/api/v1/adds/share-facebook`,{createdAdd},{withCredentials:true});
+        */
 
         /** return saved response */
-        return {createdMedia,createdAdd,shared:{sharedToFacebook,sharedToWhatsapp}};
+        return {createdMedia,createdAdd};
     }
     /** Delete media */
     DeleteMediaFromAdd = async (payload) => {
@@ -97,37 +108,50 @@ class AddServices {
 
     /** Update add */
     UpdateAdd = async (payload) => {
-        const {_id,title,description,coverImage,media,price,category,subCategory,hashtags,status} = payload;
+        const {_id,title,description,coverImage,media,price,category,subCategory,hashtags,status,location} = payload;
         const add = await this.AddModel.findById(new mongoose.Types.ObjectId(_id));
         if(!add){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.ADD_NOT_FOUND);
         }
-        if(!media || !media.isArray()){
-            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.MEDIA_NOT_FOUND + "Array not found");
+        if(!Array.isArray(media)){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.MEDIA_NOT_FOUND + " Array not found");
         }
-        const updateAdd = await this.AddModel.findByIdAndUpdate(new mongoose.Types.ObjectId(add._id),{
-            $set : {
-                category:category,
-                subCategory:subCategory,
-                coverImage:coverImage,
-                title:title,
-                description:description,
-                hashtags:hashtags,
-                price:price,
-                status:status,
-            }
+        add.category = category;
+        add.subCategory = subCategory;
+        add.coverImage = coverImage;
+        add.title = title;
+        add.description = description;
+        add.hashtags = hashtags;
+        add.price = Number(price);
+        add.location = location;
+        if(status){
+            add.status = status;
+        }
+        await add.save();
+
+        await this.MediaModel.deleteMany({
+            addId:new mongoose.Types.ObjectId(add._id)
         });
-        const updateMedia = await this.MediaModel.updateMany({
-            addId:new mongoose.Types.ObjectId(updateAdd._id)
-        },media);
-        return {updateAdd,updateMedia};
+
+        let updatedMedia = [];
+        if(media.length){
+            const mediaDocs = media.map(mediaItem => ({
+                addId:add._id,
+                mediaUrl:mediaItem.mediaUrl,
+                mediaType:mediaItem.mediaType,
+                filename:mediaItem.filename
+            }));
+            updatedMedia = await this.MediaModel.insertMany(mediaDocs);
+        }
+
+        return {updateAdd:add,updateMedia:updatedMedia};
     };
 
     /** Generate ai based description */
     GenerateAiBasedDescription = async (payload) => {
         const {title} = payload;
         const genrateAiBasedHashtags = await this.ai.models.generateContent({
-            model:"gemini-2.5-flash",
+            model:"gemini-1.5-mini",
             contents:`Write a catchy, engaging, and SEO-friendly social media description for: "${title}". Keep it under 80 words.`
         });
         const responseText = genrateAiBasedHashtags.text;
@@ -145,7 +169,7 @@ class AddServices {
     GenerateAiBasedHashtags = async (payload) => {
         const {title} = payload;
         const genrateAiBasedHashtags = await this.ai.models.generateContent({
-            model:"gemini-2.5-flash",
+            model:"gemini-1.5-mini",
             contents:`Generate 10 catchy, trending, and relevant hashtags for an Instagram post about "${title}". 
                 Make sure the hashtags are a mix of broad and niche tags, and suitable for social media engagement. 
                 Output only the hashtags separated by commas.`
@@ -169,9 +193,8 @@ class AddServices {
     };
 
     /** Share add to social services */
-    ShareAddToSocialServices = async (payload) => {
-
-    };
+    // ShareAddToSocialServices = async (payload) => {
+    // };
 
     /** Update coverImage */
     UpdateAddCoverImage = async (payload) => {
@@ -251,6 +274,7 @@ class AddServices {
                     title:1,
                     description:1,
                     coverImage:1,
+                    location:1,
                     hashtags:1,
                     price:1,
                     media:1,
@@ -260,7 +284,116 @@ class AddServices {
                 }
             }
         ])
-        return adds[0];        
+        return adds;        
+    };
+
+    /** Single add and related adds */
+    FindSingleAdd = async (payload) => {
+        const {_id} = payload;
+        console.log(payload)
+
+        /** Aggergate piplines getting add info and related adds */
+        const add = await this.AddModel.aggregate( [
+            {
+                $match : {
+                    $expr : {
+                        $eq : ["$_id",new mongoose.Types.ObjectId(_id)]
+                    }
+                }
+            },
+            {
+                $lookup : {
+                    from : "users",
+                    let:{owner:"$owner"},
+                    pipeline:[
+                        {
+                            $match : {
+                                $expr : {
+                                    $eq : ["$_id","$$owner"]
+                                }
+                            }
+                        },
+                        {
+                            $lookup : {
+                                from : "adds",
+                                let:{owner:"$_id"},
+                                pipeline:[
+                                    {
+                                        $match : {
+                                            $expr : {
+                                                $and : [
+                                                    {$eq : ["$owner","$$owner"]},
+                                                    {$eq : ["$status","ENABLED"]},
+                                                ]
+                                            }
+                                        }
+                                    }
+                                ],
+                                as:"activeAdds"
+                            }
+                        }
+                    ],
+                    as:"owner"
+                }
+            },
+            {
+                $lookup : {
+                    from : "media",
+                    localField:"_id",
+                    foreignField:"addId",
+                    as:"media"
+                }
+            },
+            {
+                $lookup : {
+                    from : "adds",
+                    let:{category:"$category"},
+                    pipeline:[
+                        {
+                            $match : {
+                                $expr : {
+                                    $and : [
+                                        { $eq: ["$category", "$$category"] },
+                                        { $ne: ["$_id", new mongoose.Types.ObjectId(_id)] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as:"relatedAdds"
+                }
+            },
+            {
+                $addFields: {
+                    owner: { $first: "$owner" },  
+                    activeAdds: { $size: "$owner.activeAdds" } 
+                }                
+            },
+            {
+                $project : {
+                    _id:1,
+                    "owner._id":1,
+                    "owner.fullname":1,
+                    "owner.email":1,
+                    "owner.avatar":1,
+                    "owner.createdAt":1,
+                    activeAdds:1,
+                    category:1,
+                    subCategory:1,
+                    coverImage:1,
+                    location:1,
+                    price:1,
+                    hashtags:1,
+                    relatedAdds:1,
+                    title:1,
+                    description:1,
+                    media:1,
+                    createdAt:1,
+                    status:1,
+                }
+            }
+        ] );
+        return add[0];
     };
 
     /** Get user adds */
@@ -299,6 +432,7 @@ class AddServices {
                     title:1,
                     description:1,
                     coverImage:1,
+                    location:1,
                     hashtags:1,
                     price:1,
                     type:1,
@@ -308,30 +442,44 @@ class AddServices {
             }
         ]);
 
-        return userAdds[0];
+        return userAdds;
     };
 
     /** Search add */
     SearchAdd = async (payload) => {
-        const {q,sort="ASC",page=1,limit=30} = payload;
-        /* converting to number **/
-        const sortNumber = sort === "ASC" ? 1 : -1;
+        const {
+            q = "",
+            sortField = "createdAt",
+            order = "ASC",
+            page = 1,
+            limit = 30,
+            minPrice,
+            maxPrice
+        } = payload;
+
+        const sortNumber = order === "ASC" ? 1 : -1;
         const pageNumber = parseInt(page);
         const limitNumber = parseInt(limit);
         const skipRecords = (pageNumber - 1) * limitNumber;
 
-        /** Search add */
-        const adds = await this.AddModel.aggregate([
-            {
+        const pipeline = [];
+
+        const priceFilter = {};
+        if(typeof minPrice === "number"){
+            priceFilter.$gte = minPrice;
+        }
+        if(typeof maxPrice === "number"){
+            priceFilter.$lte = maxPrice;
+        }
+        if(Object.keys(priceFilter).length){
+            pipeline.push({
                 $match : {
-                    $expr : {
-                        $or : [    
-                            { title: { $regex: q, $options: "i" } },
-                            { description: { $regex: q, $options: "i" } }
-                        ]
-                    }
+                    price: priceFilter
                 }
-            },
+            });
+        }
+
+        pipeline.push(
             {
                 $lookup : {
                     from : "users",
@@ -340,6 +488,28 @@ class AddServices {
                     as:"owner"
                 }
             },
+            {
+                $unwind : {
+                    path:"$owner",
+                    preserveNullAndEmptyArrays:true
+                }
+            }
+        );
+
+        if(q){
+            const regex = new RegExp(q, "i");
+            pipeline.push({
+                $match : {
+                    $or : [
+                        { title: { $regex: regex } },
+                        { description: { $regex: regex } },
+                        { "owner.username": { $regex: regex } }
+                    ]
+                }
+            });
+        }
+
+        pipeline.push(
             {
                 $lookup : {
                     from : "media",
@@ -357,46 +527,50 @@ class AddServices {
                 }
             },
             {
-                $sort : {createdAt:sortNumber}
+                $addFields : {
+                    media : {
+                        $first : "$media"
+                    }
+                }
             },
             {
-                $limit:limitNumber
+                $sort : {
+                    [sortField === "price" ? "price" : "createdAt"] : sortNumber
+                }
             },
             {
                 $skip : skipRecords
             },
             {
-                $addFields : {
-                    media : {
-                        $first : "$media"
-                    },
-                    owner : {
-                        $first : "$owner"
-                    }
-                }
+                $limit:limitNumber
             },
             {
                 $project : {
                     _id:1,
-                    "owner._id":1,
-                    "owner.fullname":1,
-                    "owner.avatar":1,
-                    "owner.username":1,
+                    owner:{
+                        _id:"$owner._id",
+                        fullname:"$owner.fullname",
+                        avatar:"$owner.avatar",
+                        username:"$owner.username"
+                    },
                     category:1,
                     subCategory:1,
                     title:1,
                     description:1,
                     coverImage:1,
+                    location:1,
                     hashtags:1,
                     price:1,
                     media:1,
                     type:1,
                     status:1,
-                    created:1,
+                    createdAt:1,
                 }
             }
-        ])
-        return adds[0];
+        );
+
+        const adds = await this.AddModel.aggregate(pipeline);
+        return adds;
     };
 };
 

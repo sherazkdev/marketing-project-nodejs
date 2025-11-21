@@ -13,8 +13,8 @@ const UserSchema = new mongoose.Schema({
     },
     username:{
         type:String,
-        unique:true,
-        index:true
+        index:true,
+        default:null,
     },
     email:{
         type:String,
@@ -42,7 +42,7 @@ const UserSchema = new mongoose.Schema({
     },
     refreshToken:{
         type:String,
-        required:true,
+        default:null,
     },
     status:{
         type:String,
@@ -53,7 +53,7 @@ const UserSchema = new mongoose.Schema({
 },{timestamps:true});
 
 /** Genrate Refresh token */
-UserSchema.methods.GenrateRefreshToken = function () {
+UserSchema.methods.GenerateRefreshToken = function () {
     try {
         const User = this;
         /* Payload component */
@@ -69,9 +69,14 @@ UserSchema.methods.GenrateRefreshToken = function () {
 
 /** Verify Hashed Otp */
 UserSchema.methods.HashedOtpVerification = async function (otp){
-    const compareOtp = await bcrypt.compare(otp,this.otp);
-    return compareOtp
+    if(!otp || !this.otp){
+        return false;
+    }
+    const sanitizedOtp = otp.toString().trim();
+    const compareOtp = await bcrypt.compare(sanitizedOtp,this.otp);
+    return compareOtp;
 }
+
 /** Verify Hashed Password */
 UserSchema.methods.HashedPasswordVerification = async function (password){
     const comparePassword = await bcrypt.compare(password,this.password);
@@ -82,14 +87,14 @@ UserSchema.methods.HashedPasswordVerification = async function (password){
 UserSchema.methods.GenrateHashedOtp = async function (otp){
     try {
         const salt = await bcrypt.genSalt(10);
-        const hashedOtp = await bcrypt.hash(otp,otp);
+        const hashedOtp = await bcrypt.hash(otp,salt);
         return hashedOtp;
     } catch (error) {
         throw new ApiError(error.status || 500,error?.message || "Error: some thing wrong");
     }
 }
 
-UserSchema.methods.GenrateAccessToken = function () {
+UserSchema.methods.GenerateAccessToken = function () {
     try {
         const User = this;
         /* Payload component */
@@ -122,9 +127,14 @@ UserSchema.pre("save", async function (next) {
 
         // If OTP is modified
         if (this.isModified("otp")) {
-            /** Generate salt and hash the OTP */
-            const salt = await bcrypt.genSalt(10);
-            this.otp = await bcrypt.hash(this.otp, salt);
+            if(!this.otp){
+                this.otp = null;
+            }else{
+                /** Generate salt and hash the OTP */
+                const salt = await bcrypt.genSalt(10);
+                const normalizedOtp = this.otp.toString().trim();
+                this.otp = await bcrypt.hash(normalizedOtp, salt);
+            }
         }
 
         // Call next middleware

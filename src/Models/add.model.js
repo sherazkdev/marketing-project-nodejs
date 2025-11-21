@@ -29,6 +29,11 @@ const AddSchema = new mongoose.Schema({
         type:Number,
         required:true,
     },
+    location:{
+        type:String,
+        required:true,
+        trim:true,
+    },
     coverImage:{
         type:String,
     },

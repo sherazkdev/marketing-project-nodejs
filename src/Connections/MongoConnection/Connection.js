@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
 
+/** Constants */
+import {DB_NAME} from "../../Constants/constants.js";
+
 class Connection {
     constructor(){
         this.connection = null;
@@ -9,7 +12,7 @@ class Connection {
     
     Connect = async () => {
         try {
-            const connectionInstance = await this.mongoose.connect(`${process.env.MONGO_URI}/${process.env.DB_NAME}`);
+            const connectionInstance = await this.mongoose.connect(`${process.env.MONGO_URI}/${DB_NAME}`);
             this.connection = connectionInstance;
             this.isConnected = true;
             console.log(`\n MongoDB connected at ${connectionInstance.connection.host}`);

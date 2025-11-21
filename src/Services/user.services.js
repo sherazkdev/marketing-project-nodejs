@@ -5,6 +5,7 @@ import UserModel from "../Models/User.model.js";
 import ApiError from "../Utils/ApiError.js";
 import ApiResponse from "../Utils/ApiResponse.js";
 import Mailer from "../Connections/NodeMailer/mailer.js";
+import { STATUS_CODES,SUCCESS_MESSAGES,ERROR_MESSAGES } from "../Constants/responseContants.js";
 
 class UserServices {
     constructor(){
@@ -14,10 +15,12 @@ class UserServices {
     // Sign in user verify email and password
     SignInUser = async (payload) => {
         const {inputValue,password} = payload;
+        const normalizedInput = inputValue.toString().trim();
+        const normalizedEmailOrUsername = normalizedInput.toLowerCase();
         const user = await this.UserModel.findOne({
             $or : [
-                {username:inputValue.toString().trim()},
-                {email:inputValue.toString().trim()}
+                {username:normalizedEmailOrUsername},
+                {email:normalizedEmailOrUsername}
             ],
             status:"ENABLED",
             isVerified:true
@@ -45,47 +48,59 @@ class UserServices {
     };
 
     GenerateRandomOtp = async () => {
-        let otp = '';
-        for(let i = 1; i < 5; i++){
-            otp += Math.floor(Math.random() * 5);
-        }
-        return otp;
+        return Math.floor(100000 + Math.random() * 900000).toString();
     }
 
     // Send Otp
     SendOtp = async (payload) => {
         const {email} = payload;
-        const checkEmailIsExist = await this.FindUserByEmail({email:email});
-        if(checkEmailIsExist){
-            throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.USER_ALREADY_EXISTS);
+        if(!email){
+            throw new ApiError(STATUS_CODES.BAD_REQUEST,"Error: Email is required");
         }
-        /** Generate otp */
-        const GenerateOtp = this.GenerateRandomOtp();
+
+        const normalizedEmail = email.toString().trim().toLowerCase();
+        const existingUser = await this.FindUserByEmail({email:normalizedEmail});
+        const generatedOtp = await this.GenerateRandomOtp();
+        const otpExpiry = new Date(Date.now() + (5 * 60 * 1000));
 
         /** Send mail payload */
         const SendMailPayload = {
-            to:email,
-            subject:"Add Feed Mail Verificatio --noreply",
+            to:normalizedEmail,
+            subject:"Add Feed Mail Verification --noreply",
             body:{
-                otp:GenerateOtp
+                otp:generatedOtp
             }
-        }
+        };
         const NodeMailer = new Mailer();
-        const sendMail = await NodeMailer.SendMail(SendMailPayload);
+        await NodeMailer.SendMail(SendMailPayload);
 
-        /** Create user record */
-        const user = await this.UserModel.create({
-            email:email.toString(),
-            otp:GenerateOtp,
-            isVerified:false,
-            otpExpiry:new Date().getTime() + ( 5 * 60 * 1000),
-            status:"DISABLED"
-        });
+        let userRecord = existingUser;
+
+        if(existingUser){
+            const hasCompletedSignup = Boolean(existingUser.password && existingUser.username && existingUser.status === "ENABLED");
+            if(hasCompletedSignup){
+                throw new ApiError(STATUS_CODES.CONFLICT,ERROR_MESSAGES.USER_ALREADY_EXISTS);
+            }
+            existingUser.otp = generatedOtp;
+            existingUser.otpExpiry = otpExpiry;
+            existingUser.isVerified = false;
+            existingUser.status = "DISABLED";
+            userRecord = await existingUser.save();
+        }else{
+            userRecord = await this.UserModel.create({
+                email:normalizedEmail,
+                otp:generatedOtp,
+                username:null,
+                isVerified:false,
+                otpExpiry,
+                status:"DISABLED"
+            });
+        }
         
         /** saved user return */
-        return {user};
+        return {user:{_id:userRecord._id,email:userRecord.email}};
     };
-
+    
     // Sign up user verify user otp
     SignUpUser = async (payload) => {
         const {password,fullname,username,avatar,userId} = payload;
@@ -100,8 +115,9 @@ class UserServices {
         }
         user.fullname = fullname;
         user.password = password;
-        user.username = username;
+        user.username = username?.toLowerCase();
         user.avatar = avatar;
+        user.status = "ENABLED";
         
         /** Next step Generate AccessToken and RefreshToken */
         const {AccessToken,RefreshToken} = await this.GenerateAccessTokenAndRefreshToken({userId:user._id});
@@ -120,26 +136,36 @@ class UserServices {
     GenerateAccessTokenAndRefreshToken = async (payload) => {
         const {userId} = payload;
         const user = await this.FindUserById({_id:userId});
-        const RefreshToken = user.GenerateRefreshToken();
-        const AccessToken = user.GenerateAccessToken();
+        const RefreshToken = await user.GenerateRefreshToken();
+        const AccessToken = await user.GenerateAccessToken();
 
         /** Assing refresh token to db refreshToken */
         user.refreshToken = RefreshToken;
         await user.save({validateBeforeSave:true});
+
         return {AccessToken,RefreshToken};
     };
 
     /** Verify hashed otp */
     VerifyHashedOtp = async (payload) => {
-        const {otp,userId} = payload;
-        const user = await this.FindUserById({_id:userId});
+        const {otp,email} = payload;
+        const sanitizedEmail = email?.toString().trim().toLowerCase();
+        const user = await this.FindUserByEmail({email:sanitizedEmail});
         if(!user){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
         }
-        if(user.otpExpiry.getTime() < new Date().getTime()){
+        if(!user.otp || !user.otpExpiry){
+            throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.OTP_EXPIRED);
+        }
+        if(new Date(user.otpExpiry).getTime() < new Date().getTime()){
             throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.OTP_EXPIRED)
         }
-        const compareHashedOtp = user.HashedOtpVerification(otp);
+        const normalizedOtp = otp?.toString().trim();
+        if(!normalizedOtp){
+            throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.OTP_INVALID);
+        }
+        const digitsOnlyOtp = normalizedOtp.replace(/\D/g,"");
+        const compareHashedOtp = await user.HashedOtpVerification(digitsOnlyOtp);
         if(!compareHashedOtp){
             throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.OTP_INVALID);
         }
@@ -148,6 +174,7 @@ class UserServices {
         user.otp = null;
         user.otpExpiry = null;
         user.isVerified = true;
+        user.status = "DISABLED";
         
         /** save user */
         await user.save();
@@ -181,7 +208,8 @@ class UserServices {
     // Find user by email
     FindUserByEmail = async (payload) => {
         const {email} = payload;
-        const user = await this.UserModel.findOne({email:email});
+        const normalizedEmail = email?.toString().trim().toLowerCase();
+        const user = await this.UserModel.findOne({email:normalizedEmail});
         return user;        
     };
 
@@ -223,6 +251,18 @@ class UserServices {
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
         }
         user.fullname = fullname;
+        await user.save();
+        return user;
+    };
+
+    // Update user username
+    UpdateUserUsername = async (payload) => {
+        const {userId,username} = payload;
+        const user = await this.FindUserById({_id:userId});
+        if(!user){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+        user.username = username;
         await user.save();
         return user;
     };

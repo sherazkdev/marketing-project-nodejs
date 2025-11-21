@@ -2,7 +2,7 @@
 import ApiError from "../Utils/ApiError.js";
 import ApiResponse from "../Utils/ApiResponse.js";
 import mongoose from "mongoose";
-import { STATUS_CODES,ERROR_MESSAGES, SUCCESS_MESSAGES } from "../Constants/responseContants.js";
+import { STATUS_CODES,SUCCESS_MESSAGES,ERROR_MESSAGES } from "../Constants/responseContants.js";
 import ai from "../Connections/GoogleGemini/googleGemini.js";
 import sharp from "sharp";
 import axios from "axios";
@@ -21,6 +21,7 @@ class AddControllers extends AddServices {
     HandleCreateAdd = async (req,res) => {
         const {error,value} = CREATE_ADD_VALIDATE.validate(req.body);
         if(error){
+            console.log(error)
             let errors = [];
             error.details.map( (e) => errors.push(e.message));
             throw new ApiError(STATUS_CODES.NOT_FOUND,errors);
@@ -33,11 +34,13 @@ class AddControllers extends AddServices {
             description:value?.description,
             coverImage:value?.coverImage,
             price:value?.price,
+            location:value?.location,
             hashtags:value?.hashtags,
             media:value?.media,
             userId:req.user._id
         };
         const createdAdd = await this.CreateAdd(createAddPayload);
+        console.log(createAddPayload)
         return res.status(STATUS_CODES.OK).json( new ApiResponse(createdAdd,SUCCESS_MESSAGES.ADD_CREATED,true,STATUS_CODES.OK))
     };
 
@@ -69,7 +72,7 @@ class AddControllers extends AddServices {
         /** delete add payload */
         const deleteAddPayload = {
             addId:value?._id,
-            deleteStatus:valude?.deleteStatus
+            deleteStatus:value?.deleteStatus
         };
         const deletedAdd = await this.DeleteAdd(deleteAddPayload);
         return res.status(STATUS_CODES.OK).json( new ApiResponse(deletedAdd,SUCCESS_MESSAGES.ADD_DELETED,true,STATUS_CODES.OK))
@@ -111,14 +114,16 @@ class AddControllers extends AddServices {
             price:value?.price,
             hashtags:value?.hashtags,
             media:value?.media,
+            location:value?.location
         };
+        console.log(updateAddPayload)
         const updateAdd = await this.UpdateAdd(updateAddPayload);
         return res.status(STATUS_CODES.OK).json( new ApiResponse(updateAdd,SUCCESS_MESSAGES.ADD_UPDATED,true,STATUS_CODES.OK))
     };
 
     /** find add */
     HandleFindAdd = async (req,res) => {
-        const {error,value} = GET_ADD_BY_ID_VALIDATE.validate(req.body);
+        const {error,value} = GET_ADD_BY_ID_VALIDATE.validate(req.query);
         if(error){
             let errors = [];
             error.details.map( (e) => errors.push(e.message));
@@ -126,9 +131,9 @@ class AddControllers extends AddServices {
         }
         /** find add payload */
         const findAddPayload = {
-            _id:value?._id,
+            _id:value?.id,
         };
-        const findedAdd = await this.FindAddById(findAddPayload);
+        const findedAdd = await this.FindSingleAdd(findAddPayload);
         if(!findedAdd){ throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.ADD_NOT_FOUND) }
         return res.status(STATUS_CODES.OK).json( new ApiResponse(findedAdd,SUCCESS_MESSAGES.ADD_DELETED,true,STATUS_CODES.OK))
     };
@@ -143,17 +148,21 @@ class AddControllers extends AddServices {
         }
         /** search add payload */
         const searchAddPayload = {
-            q:value?.q,
-            sort:value?.sort,
-            limit:value?.limit
+            q:value?.q || "",
+            sortField:value?.sortField,
+            order:value?.order,
+            page:value?.page,
+            limit:value?.limit,
+            minPrice:value?.minPrice,
+            maxPrice:value?.maxPrice
         };
         const searchedResult = await this.SearchAdd(searchAddPayload);
-        return res.status(STATUS_CODES.OK).json( new ApiResponse(searchedResult,SUCCESS_MESSAGES.ADD_DELETED,true,STATUS_CODES.OK))
+        return res.status(STATUS_CODES.OK).json( new ApiResponse(searchedResult,SUCCESS_MESSAGES.USER_FETCHED,true,STATUS_CODES.OK))
     };
 
     /** Genrate ai based content */
     HandleGenerateAiBasedDescription = async (req,res) => {
-        const {error,value} = GENERATE_AI_BASED_DESCRIPTION_VALIDATE.validate(req.body);
+        const {error,value} = GENERATE_AI_BASED_DESCRIPTION_VALIDATE.validate(req.query);
         if(error){
             let errors = [];
             error.details.map( (e) => errors.push(e.message));
@@ -164,17 +173,19 @@ class AddControllers extends AddServices {
             title:value?.title
         };
         const generatedAiBasedContent = await this.GenerateAiBasedDescription(generateAiBasedContentPayload);
+        console.log(generateAiBasedContentPayload)
         return res.status(STATUS_CODES.OK).json( new ApiResponse(generatedAiBasedContent,SUCCESS_MESSAGES.AI_BASED_CONTENT_GENERATED,true,STATUS_CODES.OK))
     };
 
     /** Generate ai based hashtags */
     HandleGenerateAiBasedHashtags = async (req,res) => {
-        const {error,value} = GENERATE_AI_BASED_HASHTAGS_VALIDATE.validate(req.body);
+        const {error,value} = GENERATE_AI_BASED_HASHTAGS_VALIDATE.validate(req.query);
         if(error){
             let errors = [];
             error.details.map( (e) => errors.push(e.message));
             throw new ApiError(STATUS_CODES.NOT_FOUND,errors);
         }
+        console.log(value)
         /** Generate ai based hashtags payload */
         const generateAiBasedHashtagsPayload = {
             title:value?.title
@@ -215,9 +226,20 @@ class AddControllers extends AddServices {
         return res.status(STATUS_CODES.OK).json( new ApiResponse(userProfile,SUCCESS_MESSAGES.USER_FETCHED,true,STATUS_CODES.OK))
     };
 
+    HandleGetUserAdds = async (req,res) => {
+        
+        /** Get user payload */
+        const getUserProfilePayload = {
+            userId:req?.user?._id
+        };
+        console.log(getUserProfilePayload)
+        const userProfile = await this.GetUserAdds(getUserProfilePayload);
+        return res.status(STATUS_CODES.OK).json( new ApiResponse(userProfile,SUCCESS_MESSAGES.USER_FETCHED,true,STATUS_CODES.OK))
+    };
+
     /** handle get lastest adds */
     HandleGetLatestAdds = async (req,res) => {
-        const {error,value} = GET_ADDS_VALIDATE.validate(req.body);
+        const {error,value} = GET_ADDS_VALIDATE.validate(req.query);
         if(error){
             let errors = [];
             error.details.map( (e) => errors.push(e.message));

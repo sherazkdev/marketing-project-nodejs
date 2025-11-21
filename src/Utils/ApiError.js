@@ -14,7 +14,7 @@ class ApiError extends Error {
         this.message = message;
         this.success = false;
         this.errors = errors;
-
+        console.log(this.message,this.stack,this.statusCode)
         if (stack) {
             this.stack = stack;
         } else {

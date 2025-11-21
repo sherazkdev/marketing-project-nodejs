@@ -5,19 +5,25 @@ import jwt from "jsonwebtoken";
 
 /** Services */
 import UserServices from "../Services/user.services.js";
-import passport from "passport";
+import GoogleAuth from "../Connections/googleAuth/google.js";
+import { ERROR_MESSAGES, STATUS_CODES } from "../Constants/responseContants.js";
 
 class Authentications extends UserServices {
+
+    constructor(){
+        super();
+    }
 
     /** decode jwt token */
     VerifyJwtToken = async (req,res,next) => {
         try {
+            console.log("Is Requested")
             const accessToken = req?.cookies?.accessToken || req?.headers?.authorization?.split(" ")[1];
             if(!accessToken){
-                throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.INVALID_CREDENTIALS);
+                throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.UNAUTHORIZED_ACCESS);
             }
             const decodedToken = jwt.verify(accessToken,process.env.ACCESS_TOKEN_SECRET);
-            const User = await this.FindById({_id:decodedToken._id});
+            const User = await this.FindUserById({_id:decodedToken._id});
             /** User is not exist to throw error */
             if(!User){
                 throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
@@ -30,15 +36,12 @@ class Authentications extends UserServices {
         }
     }
     /** Redirect to google url */
-    GoogleAuthenticate = (req,res,next) => {
-        passport.authenticate("google",{scope:["profile","email"]});
-        next();
-    }
+    GoogleAuthenticate = GoogleAuth.authenticate("google", { scope: ["profile","email"] });
+    
     /** get logged in user info */
-    GoogleAuthenticationCallBack = (req,res,next) => {
-        passport.authenticate("google",{session:false});
-        next();
-    }
+    GoogleAuthenticationCallBack = GoogleAuth.authenticate("google",{session:false});
+
+
     
 }
 
